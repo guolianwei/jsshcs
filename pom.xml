@@ -22,11 +22,13 @@
 			<version>3.8.1</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- https://mvnrepository.com/artifact/com.jcraft/jsch -->
 		<dependency>
 			<groupId>com.jcraft</groupId>
 			<artifactId>jsch</artifactId>
-			<version>0.1.53</version>
+			<version>0.1.54</version>
 		</dependency>
+
 		<!-- https://mvnrepository.com/artifact/com.github.cverges.expect4j/expect4j -->
 		<dependency>
 			<groupId>com.github.cverges.expect4j</groupId>
