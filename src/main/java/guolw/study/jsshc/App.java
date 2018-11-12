@@ -21,24 +21,29 @@ public class App {
 	public static void main(String[] args) throws IOException, JSchException {
 		String host = "localhost";
 		int port = 22;
-		String user = "xxx";
-		String password = "xxx";
+		String user = "root";
+		String password = "1";
 		String command = "ls -a /home/lwguo";
 		String res = exeCommand(host, port, user, password, command);
 		System.out.println(res);
+		SftpFileTransfer sFtp = new SftpFileTransfer(null);
+		sFtp.connect(host, port, user, password);
+		try {
+			sFtp.upload("/home/lwguo", "D:\\hadoopEcoWin\\derby.log");
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		sFtp.close();
 
 	}
 
 	public static String exeCommand(String host, int port, String user, String password, String command)
 			throws JSchException, IOException {
-
 		JSch jsch = new JSch();
 		Session session = jsch.getSession(user, host, port);
 		session.setConfig("StrictHostKeyChecking", "no");
-
 		session.setPassword(password);
 		session.connect();
-
 		ChannelExec channelExec = (ChannelExec) session.openChannel("exec");
 		InputStream in = channelExec.getInputStream();
 		channelExec.setCommand(command);

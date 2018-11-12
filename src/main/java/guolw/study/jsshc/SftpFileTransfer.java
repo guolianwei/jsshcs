@@ -17,8 +17,15 @@ import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
 
-public class SFTPUtil {
-	private static Logger log = LoggerFactory.getLogger(SFTPUtil.class);
+public class SftpFileTransfer {
+	private static final Logger LOG = LoggerFactory.getLogger(SftpFileTransfer.class);
+	private Session session = null;
+	private ChannelSftp ftpChannel;
+
+	public SftpFileTransfer(Session session) {
+		super();
+		this.session = session;
+	}
 
 	/**
 	 * 连接sftp服务器
@@ -34,66 +41,72 @@ public class SFTPUtil {
 	 * @return
 	 * @throws JSchException
 	 */
-	public static Session connect(String host, Integer port, String user, String password) throws JSchException {
-		Session session = null;
+	public void connect(String host, Integer port, String user, String password) throws JSchException {
 		try {
 			JSch jsch = new JSch();
-			if (port != null) {
-				session = jsch.getSession(user, host, port.intValue());
-			} else {
-				session = jsch.getSession(user, host);
+			if (session == null) {
+				if (port != null) {
+					session = jsch.getSession(user, host, port.intValue());
+				} else {
+					session = jsch.getSession(user, host);
+				}
 			}
-			session.setPassword(password);
-			// 设置第一次登陆的时候提示，可选值:(ask | yes | no)
-			session.setConfig("StrictHostKeyChecking", "no");
-			// 30秒连接超时
-			session.connect(30000);
+			if (!session.isConnected()) {
+				session.setPassword(password);
+				// 设置第一次登陆的时候提示，可选值:(ask | yes | no)
+				session.setConfig("StrictHostKeyChecking", "no");
+				// 30秒连接超时
+				session.connect(30000);
+			}
+			// sftp 是程序内部固化的名称
+			ftpChannel = (ChannelSftp) session.openChannel("sftp");
 		} catch (JSchException e) {
-			e.printStackTrace();
-			System.out.println("SFTPUitl 获取连接发生错误");
 			throw e;
 		}
-		return session;
+	}
+
+	public void close() {
+		ftpChannel.disconnect();
+		session.disconnect();
 	}
 
 	/**
 	 * sftp上传文件(夹)
 	 * 
-	 * @param directory
-	 * @param uploadFile
-	 * @param sftp
+	 * @param target
+	 * @param source
 	 * @throws Exception
 	 */
-	public static void upload(String directory, String uploadFile, ChannelSftp sftp) throws Exception {
-		System.out.println("sftp upload file [directory] : " + directory);
-		System.out.println("sftp upload file [uploadFile] : " + uploadFile);
-		File file = new File(uploadFile);
+	public void upload(String target, String source) throws Exception {
+		LOG.info("sftp upload file [directory] : " + target);
+		LOG.info("sftp upload file [uploadFile] : " + source);
+		File file = new File(source);
 		if (file.exists()) {
-			// 这里有点投机取巧，因为ChannelSftp无法去判读远程linux主机的文件路径,无奈之举
 			try {
-				Vector content = sftp.ls(directory);
+				Vector content = ftpChannel.ls(target);
 				if (content == null) {
-					sftp.mkdir(directory);
+					ftpChannel.mkdir(target);
 				}
 			} catch (SftpException e) {
-				sftp.mkdir(directory);
+				LOG.error(e.getMessage(), e);
+				e.printStackTrace();
 			}
 			// 进入目标路径
-			sftp.cd(directory);
+			ftpChannel.cd(target);
 			if (file.isFile()) {
 				InputStream ins = new FileInputStream(file);
 				// 中文名称的
-				sftp.put(ins, new String(file.getName().getBytes(), "UTF-8"));
-				// sftp.setFilenameEncoding("UTF-8");
+				ftpChannel.put(ins, new String(file.getName().getBytes(), "UTF-8"));
 			} else {
 				File[] files = file.listFiles();
 				for (File file2 : files) {
 					String dir = file2.getAbsolutePath();
-					if (file2.isDirectory()) {
-						String str = dir.substring(dir.lastIndexOf(file2.separator));
-						// directory = FileUtil.normalize(directory + str);
-					}
-					upload(directory, dir, sftp);
+					/*
+					 * if (file2.isDirectory()) { String str =
+					 * dir.substring(dir.lastIndexOf(file2.separator)); // directory =
+					 * FileUtil.normalize(directory + str); }
+					 */
+					upload(target, dir);
 				}
 			}
 		}
@@ -102,35 +115,33 @@ public class SFTPUtil {
 	/**
 	 * sftp下载文件（夹）
 	 * 
-	 * @param directory
+	 * @param targetDir
 	 *            下载文件上级目录
 	 * @param srcFile
 	 *            下载文件完全路径
 	 * @param saveFile
 	 *            保存文件路径
-	 * @param sftp
-	 *            ChannelSftp
 	 * @throws UnsupportedEncodingException
 	 */
-	public static void download(String directory, String srcFile, String saveFile, ChannelSftp sftp)
-			throws UnsupportedEncodingException {
+	public void download(String targetDir, String srcFile, String saveFile) throws UnsupportedEncodingException {
 		Vector conts = null;
 		try {
-			conts = sftp.ls(srcFile);
+			conts = ftpChannel.ls(srcFile);
 		} catch (SftpException e) {
 			e.printStackTrace();
-			log.debug("ChannelSftp sftp罗列文件发生错误", e);
+			LOG.debug("ChannelSftp sftp罗列文件发生错误", e);
 		}
 		File file = new File(saveFile);
-		if (!file.exists())
+		if (!file.exists()) {
 			file.mkdir();
+		}
 		// 文件
 		if (srcFile.indexOf(".") > -1) {
 			try {
-				sftp.get(srcFile, saveFile);
+				ftpChannel.get(srcFile, saveFile);
 			} catch (SftpException e) {
 				e.printStackTrace();
-				log.debug("ChannelSftp sftp下载文件发生错误", e);
+				LOG.debug("ChannelSftp sftp下载文件发生错误", e);
 			}
 		} else {
 			// 文件夹(路径)
@@ -140,7 +151,7 @@ public class SFTPUtil {
 				if (!(filename.indexOf(".") > -1)) {
 					// directory = FileUtil.normalize(directory +
 					// System.getProperty("file.separator") + filename);
-					srcFile = directory;
+					srcFile = targetDir;
 					// saveFile = FileUtil.normalize(saveFile + System.getProperty("file.separator")
 					// + filename);
 				} else {
@@ -153,7 +164,7 @@ public class SFTPUtil {
 						continue;
 					}
 				}
-				download(directory, srcFile, saveFile, sftp);
+				download(targetDir, srcFile, saveFile);
 			}
 		}
 	}
