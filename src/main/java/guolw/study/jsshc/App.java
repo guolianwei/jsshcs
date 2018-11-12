@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.log4j.Logger;
 
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
@@ -18,14 +19,17 @@ import com.jcraft.jsch.Session;
  * PermitRootLogin yes 注释掉：#StrictModes yes<br>
  */
 public class App {
+	private static final Logger LOG = Logger.getLogger(SftpFileTransfer.class);
+
 	public static void main(String[] args) throws IOException, JSchException {
 		String host = "localhost";
 		int port = 22;
 		String user = "root";
 		String password = "1";
 		String command = "ls -a /home/lwguo";
+		LOG.info(command);
 		String res = exeCommand(host, port, user, password, command);
-		System.out.println(res);
+		LOG.info(res);
 		SftpFileTransfer sFtp = new SftpFileTransfer(null);
 		sFtp.connect(host, port, user, password);
 		try {

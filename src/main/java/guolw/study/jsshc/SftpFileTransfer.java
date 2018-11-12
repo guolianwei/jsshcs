@@ -7,8 +7,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
 import java.util.Vector;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.log4j.Logger;
 
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.ChannelSftp.LsEntry;
@@ -18,7 +17,7 @@ import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
 
 public class SftpFileTransfer {
-	private static final Logger LOG = LoggerFactory.getLogger(SftpFileTransfer.class);
+	private static final Logger LOG = Logger.getLogger(SftpFileTransfer.class);
 	private Session session = null;
 	private ChannelSftp ftpChannel;
 
@@ -60,6 +59,7 @@ public class SftpFileTransfer {
 			}
 			// sftp 是程序内部固化的名称
 			ftpChannel = (ChannelSftp) session.openChannel("sftp");
+			ftpChannel.connect();
 		} catch (JSchException e) {
 			throw e;
 		}
@@ -89,7 +89,7 @@ public class SftpFileTransfer {
 				}
 			} catch (SftpException e) {
 				LOG.error(e.getMessage(), e);
-				e.printStackTrace();
+				throw e;
 			}
 			// 进入目标路径
 			ftpChannel.cd(target);
@@ -101,11 +101,6 @@ public class SftpFileTransfer {
 				File[] files = file.listFiles();
 				for (File file2 : files) {
 					String dir = file2.getAbsolutePath();
-					/*
-					 * if (file2.isDirectory()) { String str =
-					 * dir.substring(dir.lastIndexOf(file2.separator)); // directory =
-					 * FileUtil.normalize(directory + str); }
-					 */
 					upload(target, dir);
 				}
 			}
